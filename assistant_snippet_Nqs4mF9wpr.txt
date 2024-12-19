@@ -1,0 +1,5 @@
+1|# Generate migrations
+2|npm run db:generate
+3|
+4|# Push schema changes
+5|npm run db:push 
