@@ -1,68 +1,25 @@
 'use client'
 
-import React, { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState } from 'react'
 
 interface CartItem {
   id: string
   name: string
   price: number
   quantity: number
-  image: string
+  image?: string
 }
 
 interface CartContextType {
   items: CartItem[]
   addItem: (item: CartItem) => void
-  removeItem: (itemId: string) => void
-  updateQuantity: (itemId: string, quantity: number) => void
+  removeItem: (id: string) => void
+  updateQuantity: (id: string, quantity: number) => void
   clearCart: () => void
+  total: number
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
-
-const CartProvider = ({ children }: { children: React.ReactNode }) => {
-  const [items, setItems] = useState<CartItem[]>([])
-
-  const addItem = (newItem: CartItem) => {
-    setItems((currentItems) => {
-      const existingItem = currentItems.find((item) => item.id === newItem.id)
-      if (existingItem) {
-        return currentItems.map((item) =>
-          item.id === newItem.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
-      }
-      return [...currentItems, newItem]
-    })
-  }
-
-  const removeItem = (itemId: string) => {
-    setItems((currentItems) =>
-      currentItems.filter((item) => item.id !== itemId)
-    )
-  }
-
-  const updateQuantity = (itemId: string, quantity: number) => {
-    setItems((currentItems) =>
-      currentItems.map((item) =>
-        item.id === itemId ? { ...item, quantity } : item
-      )
-    )
-  }
-
-  const clearCart = () => {
-    setItems([])
-  }
-
-  return (
-    <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clearCart }}
-    >
-      {children}
-    </CartContext.Provider>
-  )
-}
 
 export function useCart() {
   const context = useContext(CartContext)
@@ -72,4 +29,45 @@ export function useCart() {
   return context
 }
 
-export default CartProvider 
+export default function CartProvider({ children }: { children: React.ReactNode }) {
+  const [items, setItems] = useState<CartItem[]>([])
+
+  const addItem = (item: CartItem) => {
+    setItems((prev) => {
+      const existing = prev.find((i) => i.id === item.id)
+      if (existing) {
+        return prev.map((i) =>
+          i.id === item.id ? { ...i, quantity: i.quantity + item.quantity } : i
+        )
+      }
+      return [...prev, item]
+    })
+  }
+
+  const removeItem = (id: string) => {
+    setItems((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const updateQuantity = (id: string, quantity: number) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, quantity: Math.max(0, quantity) } : item
+      )
+    )
+  }
+
+  const clearCart = () => {
+    setItems([])
+  }
+
+  const total = items.reduce((acc, item) => acc + item.price * item.quantity, 0)
+
+  return (
+    <CartContext.Provider
+      value={{ items, addItem, removeItem, updateQuantity, clearCart, total }}
+    >
+      {children}
+    </CartContext.Provider>
+  )
+}
+
