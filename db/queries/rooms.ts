@@ -1,6 +1,6 @@
-import { eq, and, gte, lte } from 'drizzle-orm'
+import { eq, and, lte, notIn, lt, gt } from 'drizzle-orm'
 import { db } from '../db'
-import { rooms, Room, NewRoom } from '../schema'
+import { rooms, Room, NewRoom, bookings } from '../schema'
 
 export async function getAllRooms(): Promise<Room[]> {
   return await db.select().from(rooms)
@@ -23,23 +23,36 @@ export async function getAvailableRooms(
   maxPrice?: number,
   hasAC?: boolean
 ): Promise<Room[]> {
-  let query = db.select().from(rooms).where(eq(rooms.isAvailable, true))
+  const bookedRoomIdsSubquery = db
+    .select({ roomId: bookings.roomId })
+    .from(bookings)
+    .where(
+      and(
+        lt(bookings.checkInDate, checkOutDate),
+        gt(bookings.checkOutDate, checkInDate)
+      )
+    );
+
+  const conditions = [
+    eq(rooms.isAvailable, true),
+    notIn(rooms.id, bookedRoomIdsSubquery)
+  ];
 
   if (type) {
-    query = query.where(eq(rooms.type, type))
+    conditions.push(eq(rooms.type, type));
   }
 
   if (maxPrice) {
-    query = query.where(lte(rooms.price, maxPrice))
+    conditions.push(lte(rooms.price, maxPrice));
   }
 
   if (hasAC !== undefined) {
-    query = query.where(eq(rooms.hasAC, hasAC))
+    conditions.push(eq(rooms.hasAC, hasAC));
   }
 
-  // TODO: Add check for existing bookings in the date range
+  const query = db.select().from(rooms).where(and(...conditions));
 
-  return await query
+  return await query;
 }
 
 export async function createRoom(room: NewRoom): Promise<Room> {
